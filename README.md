@@ -145,6 +145,7 @@ const { result: user, refetch } = api.query.getUser({
 // Query with options - customize behavior
 const { result: data } = api.query.getUsers({
   loadOnMount: true,
+  autoRefetch: true, // refetch otomatis saat params/data reactive berubah
   debounce: 300,
   onResult: (data) => console.log('Loaded:', data),
   onError: (error) => console.error('Error:', error)
@@ -190,7 +191,8 @@ const { result, isLoading, refetch } = api.query.searchUsers({
     query: searchTerm.value,
     filters: { active: true }
   },
-  loadOnMount: false
+  loadOnMount: false,
+  autoRefetch: false // disable auto refetch, trigger manual via refetch()
 });
 </script>
 

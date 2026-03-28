@@ -307,6 +307,7 @@ export function createApiClient<
           if (paramsOrOptions && typeof paramsOrOptions === 'object') {
             // Check if it's options object (has callbacks or config) or direct params
             const hasOptionsProps = 'loadOnMount' in paramsOrOptions ||
+                                    'autoRefetch' in paramsOrOptions ||
                                     'debounce' in paramsOrOptions ||
                                     'onResult' in paramsOrOptions ||
                                     'onError' in paramsOrOptions ||
@@ -449,7 +450,7 @@ export function createApiClient<
 
           let stopWatcher: (() => void) | null = null;
 
-          if (queryOptions?.params || queryOptions?.data) {
+          if ((queryOptions?.autoRefetch ?? true) && (queryOptions?.params || queryOptions?.data)) {
             onMounted(() => {
               if (stopWatcher) stopWatcher();
               stopWatcher = watch(
