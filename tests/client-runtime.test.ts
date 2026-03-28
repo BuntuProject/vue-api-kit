@@ -527,4 +527,30 @@ describe("createApiClient - Runtime Behavior", () => {
       await expect(errorInterceptor.error(error)).rejects.toEqual(error);
     });
   });
+
+  describe("Query options", () => {
+    it("should treat autoRefetch as query option and allow manual-only refetch", async () => {
+      mockAxiosInstance.request.mockResolvedValue({ data: [{ id: 1, name: "Jane" }] });
+
+      const api = createApiClient({
+        baseURL: "https://api.example.com",
+        queries: {
+          getUsers: {
+            path: "/users",
+            response: z.array(z.object({ id: z.number(), name: z.string() })),
+          },
+        },
+      });
+
+      const { result, refetch } = api.query.getUsers({
+        autoRefetch: false,
+        loadOnMount: false,
+      });
+
+      expect(mockAxiosInstance.request).not.toHaveBeenCalled();
+      await refetch();
+      expect(mockAxiosInstance.request).toHaveBeenCalledTimes(1);
+      expect(result.value).toEqual([{ id: 1, name: "Jane" }]);
+    });
+  });
 });

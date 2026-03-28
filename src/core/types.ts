@@ -189,6 +189,7 @@ export interface ApiClientOptions<
  * const options: UseQueryOptions = {
  *   params: { page: 1 },
  *   loadOnMount: true,
+ *   autoRefetch: true,
  *   debounce: 300,
  *   onResult: (data) => console.log(data),
  *   onError: (error) => console.error(error)
@@ -197,6 +198,7 @@ export interface ApiClientOptions<
  * const options: UseQueryOptions = {
  *   data: { query: "search term" },
  *   loadOnMount: true,
+ *   autoRefetch: false,
  *   onResult: (data) => console.log(data)
  * };
  */
@@ -204,6 +206,7 @@ export interface UseQueryOptions<TParams = any, TData = any, TResult = any> {
   params?: TParams;
   data?: TData;
   loadOnMount?: boolean;
+  autoRefetch?: boolean;
   debounce?: number;
   onResult?: (result: TResult) => void;
   onError?: (error: AxiosError | ZodError | Error) => void;
