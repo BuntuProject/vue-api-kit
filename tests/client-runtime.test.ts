@@ -527,4 +527,96 @@ describe("createApiClient - Runtime Behavior", () => {
       await expect(errorInterceptor.error(error)).rejects.toEqual(error);
     });
   });
+  describe("Manual cancellation", () => {
+    it("should expose cancel for queries and abort the active query request", async () => {
+      let requestConfig: any;
+      mockAxiosInstance.request.mockImplementation((config: any) => {
+        requestConfig = config;
+        return new Promise(() => {});
+      });
+
+      const api = createApiClient({
+        baseURL: "https://api.example.com",
+        queries: {
+          getUser: {
+            path: "/users/{id}",
+            params: z.object({ id: z.number() }),
+          },
+        },
+      });
+
+      const { refetch, cancel, isLoading } = api.query.getUser({ params: { id: 1 }, loadOnMount: false });
+      const pending = refetch();
+      await Promise.resolve();
+
+      expect(isLoading.value).toBe(true);
+      expect(requestConfig.signal).toBeInstanceOf(AbortSignal);
+      expect(requestConfig.signal.aborted).toBe(false);
+
+      cancel();
+
+      expect(requestConfig.signal.aborted).toBe(true);
+      expect(isLoading.value).toBe(false);
+      void pending;
+    });
+
+    it("should expose cancel for mutations and abort the active mutation request", async () => {
+      let requestConfig: any;
+      mockAxiosInstance.request.mockImplementation((config: any) => {
+        requestConfig = config;
+        return new Promise(() => {});
+      });
+
+      const api = createApiClient({
+        baseURL: "https://api.example.com",
+        mutations: {
+          createUser: {
+            method: "POST",
+            path: "/users",
+            data: z.object({ name: z.string() }),
+          },
+        },
+      });
+
+      const { mutate, cancel, isLoading } = api.mutation.createUser();
+      const pending = mutate({ data: { name: "John" } });
+      await Promise.resolve();
+
+      expect(isLoading.value).toBe(true);
+      expect(requestConfig.signal).toBeInstanceOf(AbortSignal);
+      expect(requestConfig.signal.aborted).toBe(false);
+
+      cancel();
+
+      expect(requestConfig.signal.aborted).toBe(true);
+      expect(isLoading.value).toBe(false);
+      void pending;
+    });
+
+    it("should not call mutation error handlers for canceled requests", async () => {
+      const onError = vi.fn();
+      const globalOnError = vi.fn();
+      mockAxiosInstance.request.mockRejectedValue({ code: "ERR_CANCELED", message: "canceled" });
+
+      const api = createApiClient({
+        baseURL: "https://api.example.com",
+        onError: globalOnError,
+        mutations: {
+          createUser: {
+            method: "POST",
+            path: "/users",
+            data: z.object({ name: z.string() }),
+          },
+        },
+      });
+
+      const { mutate, errorMessage } = api.mutation.createUser({ onError });
+      await mutate({ data: { name: "John" } });
+
+      expect(errorMessage.value).toBeUndefined();
+      expect(onError).not.toHaveBeenCalled();
+      expect(globalOnError).not.toHaveBeenCalled();
+    });
+  });
+
 });

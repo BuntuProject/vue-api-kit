@@ -247,6 +247,7 @@ export interface QueryResult<TResult> {
   isLoading: Ref<boolean>;
   isDone: Ref<boolean>;
   refetch: () => Promise<void>;
+  cancel: () => void;
 }
 
 /**
@@ -269,4 +270,5 @@ export interface MutationResult<TResult, TData = any, TParams = any> {
   isDone: Ref<boolean>;
   uploadProgress: Ref<number>;
   mutate: (rgs?: { data?: TData; params?: TParams }) => Promise<void>;
+  cancel: () => void;
 }

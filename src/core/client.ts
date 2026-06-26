@@ -23,6 +23,10 @@ function isApiMutation(obj: any): obj is ApiMutation {
   return obj && typeof obj === 'object' && obj !== null && typeof obj.path === 'string' && typeof obj.method === 'string';
 }
 
+function isCanceledError(error: any): boolean {
+  return error?.code === "ERR_CANCELED" || error?.name === "CanceledError";
+}
+
 /**
  * Recursively flatten nested objects for FormData with bracket notation
  * @param formData - The FormData instance to append to
@@ -328,17 +332,22 @@ export function createApiClient<
           const isLoading = ref(false);
           const isDone = ref(false);
           const isFirstLoad = ref(true);
-          let abortController = new AbortController();
+          let abortController: AbortController | null = null;
+          let activeRequestId = 0;
 
           const cancel = () => {
             abortController?.abort();
-            abortController = new AbortController();
+            abortController = null;
+            isLoading.value = false;
           };
 
           const refetch = async () => {
             if (isLoading.value) {
               cancel();
             }
+
+            const requestId = ++activeRequestId;
+            abortController = new AbortController();
             isLoading.value = true;
             errorMessage.value = undefined;
 
@@ -399,17 +408,19 @@ export function createApiClient<
               data.value = parsedData;
               queryOptions?.onResult?.(parsedData);
             } catch (err: any) {
+              if (isCanceledError(err)) {
+                return;
+              }
+
               if (err instanceof AxiosError) {
-                if (err.code !== "ERR_CANCELED") {
-                  const message = err.response?.data?.message || err.message || "An error occurred";
-                  errorMessage.value = message;
+                const message = err.response?.data?.message || err.message || "An error occurred";
+                errorMessage.value = message;
 
-                  // Call local error handler
-                  queryOptions?.onError?.(err);
+                // Call local error handler
+                queryOptions?.onError?.(err);
 
-                  // Call global error handler
-                  options.onError?.({ err, message });
-                }
+                // Call global error handler
+                options.onError?.({ err, message });
               } else if (err instanceof ZodError) {
                 console.warn("Zod validation error at:", q.method, q.path);
                 // Handle Zod validation errors
@@ -438,8 +449,11 @@ export function createApiClient<
                 options.onError?.({ err, message });
               }
             } finally {
-              isLoading.value = false;
-              isDone.value = true;
+              if (requestId === activeRequestId) {
+                isLoading.value = false;
+                isDone.value = true;
+                abortController = null;
+              }
             }
           };
 
@@ -462,7 +476,7 @@ export function createApiClient<
             });
             onBeforeUnmount(() => {
               if (stopWatcher) stopWatcher();
-              abortController?.abort();
+              cancel();
             });
           }
 
@@ -475,7 +489,7 @@ export function createApiClient<
             }
           }
 
-          return { result: data, errorMessage, zodError, isLoading, isDone, refetch };
+          return { result: data, errorMessage, zodError, isLoading, isDone, refetch, cancel };
         };
       } else if (typeof value === 'object') {
         // It's a nested structure, recurse
@@ -516,6 +530,13 @@ export function createApiClient<
           const isLoading = ref(false);
           const isDone = ref(false);
           const uploadProgress = ref(0);
+          let abortController: AbortController | null = null;
+
+          const cancel = () => {
+            abortController?.abort();
+            abortController = null;
+            isLoading.value = false;
+          };
 
           const mutate = async (
             args?: {
@@ -524,6 +545,8 @@ export function createApiClient<
             }
           ) => {
             if (isLoading.value) return;
+
+            abortController = new AbortController();
             isLoading.value = true;
             errorMessage.value = undefined;
             uploadProgress.value = 0;
@@ -563,6 +586,7 @@ export function createApiClient<
                 data: requestData,
                 params: params,
                 headers,
+                signal: abortController.signal,
                 onUploadProgress: (progressEvent: AxiosProgressEvent) => {
                   if (progressEvent.total) {
                     const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -603,6 +627,10 @@ export function createApiClient<
               data.value = parsedData;
               mutationOptions?.onResult?.(parsedData);
             } catch (err: any) {
+              if (isCanceledError(err)) {
+                return;
+              }
+
               if (err instanceof AxiosError) {
                 const message = err.response?.data?.message || err.message || "An error occurred";
                 errorMessage.value = message;
@@ -641,10 +669,11 @@ export function createApiClient<
             } finally {
               isLoading.value = false;
               isDone.value = true;
+              abortController = null;
             }
           };
 
-          return { result: data, errorMessage, zodError, isLoading, isDone, uploadProgress, mutate };
+          return { result: data, errorMessage, zodError, isLoading, isDone, uploadProgress, mutate, cancel };
         };
       } else if (typeof value === 'object') {
         // It's a nested structure, recurse
