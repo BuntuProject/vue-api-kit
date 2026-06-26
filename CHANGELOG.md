@@ -1,3 +1,9 @@
+## [1.14.0](https://github.com/BuntuProject/vue-api-kit/compare/v1.13.0...v1.14.0) (2026-06-26)
+
+### :sparkles: Features
+
+* add manual request cancellation ([229f2e9](https://github.com/BuntuProject/vue-api-kit/commit/229f2e9004dfb76b0309ce92758d47cfa5d229f5))
+
 ## [1.13.0](https://github.com/MelvishNiz/vue-api-kit/compare/v1.12.1...v1.13.0) (2026-02-20)
 
 ### :sparkles: Features
